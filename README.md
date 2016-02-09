@@ -1,7 +1,7 @@
 # MP4 ISO base media file format parser 
 
 Parses out and returns a limited set of MP4 boxes
-
+Spell
 Usage:
 
     boxes = mp4.F4VParser.parse(file)
@@ -14,7 +14,7 @@ Usage:
     pip install https://github.com/use-sparingly/mp4parse/zipball/master
 
 ### Prerequisites
-Pip should prerequisites. In case you're manually installing, you'll need:
+Pip should install prerequisites. In case you're manually installing, you'll need:
 
 1. Bitstring - https://pypi.python.org/pypi/bitstring/
 
