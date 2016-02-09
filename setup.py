@@ -1,7 +1,7 @@
 from distutils.core import setup
 
 setup(
-    name='mp4parse',
+    name='pymp4parse',
     version='0.1.0',
     packages=[''],
     url='https://github.com/use-sparingly/mp4parse',

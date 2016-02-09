@@ -4,10 +4,12 @@ Parses out and returns a limited set of MP4 boxes
 Spell
 Usage:
 
-    boxes = mp4.F4VParser.parse(file)
-        for box in boxes:
-            print box.type
-            print dir(box)
+    import pymp4parse
+    
+    boxes = pymp4parse.F4VParser.parse(file)
+    for box in boxes:
+        print box.type
+        print dir(box)
 
 ## Installation
 
