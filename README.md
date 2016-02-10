@@ -1,4 +1,4 @@
-# MP4 ISO base media file format parser 
+# MP4 ISO Base Media File Format Parser 
 
 Parses out and returns a limited set of MP4 boxes
 Spell
