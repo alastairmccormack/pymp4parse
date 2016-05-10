@@ -23,6 +23,13 @@ class MixinDictRepr(object):
     def __repr__(self, *args, **kwargs):
         return "{class_name} : {content!r} ".format(class_name=self.__class__.__name__,
                                                     content=self.__dict__)
+        
+class MixinMinimalRepr(object):
+    """ A minimal representaion when the payload could be large """
+   
+    def __repr__(self, *args, **kwargs):
+        return "{class_name} : {content!r} ".format(class_name=self.__class__.__name__,
+                                                    content=self.__dict__.keys())
 
 class FragmentRunTableBox(MixinDictRepr):
     pass
@@ -90,7 +97,7 @@ class FragmentRunTable(MixinDictRepr):
     def __repr__(self, *args, **kwargs):
         return str(self.__dict__)
 
-class MediaDataBox(MixinDictRepr):
+class MediaDataBox(MixinMinimalRepr):
     """ aka mdat """
     type = "mdat"
 
