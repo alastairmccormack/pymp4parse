@@ -113,7 +113,20 @@ BoxHeader = namedtuple( "BoxHeader", ["box_size", "box_type", "header_size"] )
 class F4VParser(object):
 
     @classmethod
-    def parse(cls, filename=None, bytes_input=None, offset_bytes=0):
+    def parse(cls, filename=None, bytes_input=None, file_input=None, offset_bytes=0):
+        """
+        Parse an MP4 file or bytes into boxes
+
+
+        :param filename: filename of mp4 file.
+        :type filename: str.
+        :param bytes_input: bytes of mp4 file.
+        :type bytes_input: bytes / Python 2.x str.
+        :param offset_bytes: start parsing at offset.
+        :type offset_bytes: int.
+        :return: BMFF Boxes
+
+        """
 
         box_lookup = {
             BootStrapInfoBox.type:                  cls._parse_abst,
@@ -126,8 +139,10 @@ class F4VParser(object):
         
         if filename:
             bs = bitstring.ConstBitStream(filename=filename, offset=offset_bytes * 8)
-        else:
+        elif bytes_input:
             bs = bitstring.ConstBitStream(bytes=bytes_input, offset=offset_bytes * 8)
+        else:
+            bs = bitstring.ConstBitStream(auto=file_input, offset=offset_bytes * 8)
         
         log.debug("Starting parse")
         log.debug("Size is %d bits", bs.len)
@@ -141,8 +156,52 @@ class F4VParser(object):
             log.debug("Byte pos after header: %d relative to (%d)", bs.bytepos, offset_bytes)
 
             parse_function = box_lookup.get(header.box_type, cls._parse_unimplemented)
+            try:
+                yield parse_function(bs, header)
+            except ValueError as e:
+                log.error("Potentially corrupt file")
+                raise
 
-            yield parse_function(bs, header)
+    @classmethod
+    def is_mp4_s(cls, bytes_input):
+        """ Is bytes_input the contents of an MP4 file
+
+        :param bytes_input: str/bytes to check.
+        :type bytes_input: str/bytes.
+        :return:
+        """
+
+        try:
+            for box in cls.parse(bytes_input=bytes_input):
+                return True
+        except ValueError:
+            return False
+
+    @classmethod
+    def is_mp4(cls, file_input):
+        """ Checks input if it's an MP4 file
+
+        :param input: Filename or file object
+        :type input: str, file
+        :param state: Current state to be in.
+        :type state: bool.
+        :returns:  bool.
+        :raises: AttributeError, KeyError
+        """
+
+        if hasattr(file_input, "read"):
+            try:
+                for box in cls.parse(file_input=file_input):
+                    return True
+            except ValueError:
+                return False
+        else:
+            try:
+                for box in cls.parse(filename=file_input):
+                    return True
+            except ValueError:
+                return False
+
 
 
     @staticmethod
@@ -176,7 +235,7 @@ class F4VParser(object):
     def _parse_unimplemented(bs, header):
         ui = UnImplementedBox()
         ui.header = header
-        
+
         bs.bytepos += header.box_size
         
         return ui
