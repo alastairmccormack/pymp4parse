@@ -8,7 +8,7 @@ except(IOError, ImportError):
 
 setup(
     name='pymp4parse',
-    version='0.2.2',
+    version='0.2.3',
     packages=[''],
     url='https://github.com/use-sparingly/pymp4parse',
     license='The MIT License',
@@ -17,5 +17,6 @@ setup(
     description='MP4 / ISO base media file format (ISO/IEC 14496-12 - MPEG-4 Part 12) file parser',
     requires=['bitstring'],
     install_requires=['bitstring'],
-    long_description=long_description
+    long_description=long_description,
+    data_files=[('', ['README.md'])]
 )
