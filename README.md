@@ -1,4 +1,4 @@
-# MP4 ISO Base Media File Format Parser 
+# MP4 ISO Base Media File Format Parser Library
 
 Parses out and returns a limited set of MP4 boxes
 
