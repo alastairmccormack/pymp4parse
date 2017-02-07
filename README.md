@@ -14,7 +14,8 @@ Parses out and returns a limited set of MP4 boxes
         print dir(box)
 
 ## Check is MP4 file
-    
+Reads the first box header at byte 0. Returns `False` if box header does not exist or is invalid  
+
     >>> pymp4parse.F4VParser.is_mp4(filename='my.mp4')
     True
     >>> pymp4parse.F4VParser.is_mp4(filename='/etc/resolv.conf')
