@@ -10,14 +10,11 @@ import bitstring
 from datetime import datetime
 from collections import namedtuple
 import logging
-
-class NullHandler(logging.Handler):
-    def emit(self, record):
-        pass
+import six
 
 log = logging.getLogger(__name__)
-log.addHandler(NullHandler())
-log.setLevel(logging.FATAL)
+#log.addHandler(logging.NullHandler())
+log.setLevel(logging.WARN)
 
 class MixinDictRepr(object):
     def __repr__(self, *args, **kwargs):
@@ -113,7 +110,7 @@ BoxHeader = namedtuple( "BoxHeader", ["box_size", "box_type", "header_size"] )
 class F4VParser(object):
 
     @classmethod
-    def parse(cls, filename=None, bytes_input=None, file_input=None, offset_bytes=0):
+    def parse(cls, filename=None, bytes_input=None, file_input=None, offset_bytes=0, headers_only=False):
         """
         Parse an MP4 file or bytes into boxes
 
@@ -124,7 +121,9 @@ class F4VParser(object):
         :type bytes_input: bytes / Python 2.x str.
         :param offset_bytes: start parsing at offset.
         :type offset_bytes: int.
-        :return: BMFF Boxes
+        :param headers_only: Ignore data and return just headers. Useful when data is cut short
+        :type: headers_only: boolean
+        :return: BMFF Boxes or Headers
 
         """
 
@@ -146,21 +145,44 @@ class F4VParser(object):
         
         log.debug("Starting parse")
         log.debug("Size is %d bits", bs.len)
-        
+
         while bs.pos < bs.len:
             log.debug("Byte pos before header: %d relative to (%d)", bs.bytepos, offset_bytes)
             log.debug("Reading header")
-            header = cls._read_box_header(bs)
+            try:
+                header = cls._read_box_header(bs)
+            except bitstring.ReadError as e:
+                log.error("Premature end of data while reading box header")
+                raise
             
             log.debug("Header type: %s", header.box_type)
             log.debug("Byte pos after header: %d relative to (%d)", bs.bytepos, offset_bytes)
 
-            parse_function = box_lookup.get(header.box_type, cls._parse_unimplemented)
-            try:
-                yield parse_function(bs, header)
-            except ValueError as e:
-                log.error("Potentially corrupt file")
-                raise
+            if headers_only:
+                yield header
+
+                # move pointer to next header if possible
+                try:
+                    bs.bytepos += header.box_size
+                except ValueError:
+                    log.warning("Premature end of data")
+                    raise
+            else:
+                # Get parser method for header type
+                parse_function = box_lookup.get(header.box_type, cls._parse_unimplemented)
+                try:
+                    yield parse_function(bs, header)
+                except ValueError as e:
+                    log.error("Premature end of data")
+                    raise
+
+    @classmethod
+    def _is_mp4(cls, parser):
+        try:
+            for box in parser:
+                return True
+        except ValueError:
+            return False
 
     @classmethod
     def is_mp4_s(cls, bytes_input):
@@ -171,11 +193,8 @@ class F4VParser(object):
         :return:
         """
 
-        try:
-            for box in cls.parse(bytes_input=bytes_input):
-                return True
-        except ValueError:
-            return False
+        parser = cls.parse(bytes_input=bytes_input, headers_only=True)
+        return cls._is_mp4(parser)
 
     @classmethod
     def is_mp4(cls, file_input):
@@ -190,19 +209,10 @@ class F4VParser(object):
         """
 
         if hasattr(file_input, "read"):
-            try:
-                for box in cls.parse(file_input=file_input):
-                    return True
-            except ValueError:
-                return False
+           parser = cls.parse(file_input=file_input, headers_only=True)
         else:
-            try:
-                for box in cls.parse(filename=file_input):
-                    return True
-            except ValueError:
-                return False
-
-
+           parser = cls.parse(filename=file_input, headers_only=True)
+        return cls._is_mp4(parser)
 
     @staticmethod
     def _read_string(bs):
@@ -215,7 +225,7 @@ class F4VParser(object):
         """ Read a count then return the strings in a list """
         result = []
         entry_count = bs.read("uint:8")
-        for _ in xrange(0, entry_count):
+        for _ in six.range(0, entry_count):
             result.append( cls._read_string(bs) )
         return result
 
@@ -223,7 +233,16 @@ class F4VParser(object):
     def _read_box_header(bs):
         header_start_pos = bs.bytepos
         size, box_type = bs.readlist("uint:32, bytes:4")
-        
+
+        # box_type should be an ASCII string. Decode as UTF-8 in case
+        try:
+            box_type = box_type.decode('utf-8')
+        except UnicodeDecodeError:
+            # we'll leave as bytes instead
+            pass
+
+        # if size == 1, then this is an extended size type.
+        # Therefore read the next 64 bits as size
         if size == 1:
             size = bs.read("uint:64")
         header_end_pos = bs.bytepos
@@ -265,7 +284,7 @@ class F4VParser(object):
         
         log.debug("local_access_entries entry count: %s", local_entry_count)
         afra.local_access_entries = []        
-        for _ in xrange(0, local_entry_count):
+        for _ in six.range(0, local_entry_count):
             time = cls._parse_time_field(afra_bs, afra.time_scale)
             
             offset = afra_bs.read(offset_bs_type)
@@ -282,7 +301,7 @@ class F4VParser(object):
             
             log.debug("global_access_entries entry count: %s", global_entry_count)  
             
-            for _ in xrange(0, global_entry_count):
+            for _ in six.range(0, global_entry_count):
                 time = cls._parse_time_field(afra_bs, afra.time_scale)
                 
                 segment_number = afra_bs.read(id_bs_type)
@@ -358,7 +377,7 @@ class F4VParser(object):
         
         segment_count = box_bs.read("uint:8")
         log.debug("segment_count: %d" % segment_count)
-        for _ in xrange(0, segment_count):
+        for _ in six.range(0, segment_count):
             abst.segment_run_tables.append( cls._parse_asrt(box_bs) )
 
         abst.fragment_tables = []
@@ -389,7 +408,7 @@ class F4VParser(object):
         asrt.segment_run_table_entries = []
         segment_count = asrt_bs_box.read("uint:32")
         
-        for _ in xrange(0, segment_count):
+        for _ in six.range(0, segment_count):
             first_segment = asrt_bs_box.read("uint:32")
             fragments_per_segment = asrt_bs_box.read("uint:32")
             asrt.segment_run_table_entries.append( 
@@ -417,7 +436,7 @@ class F4VParser(object):
         
         afrt.fragments = []
 
-        for _ in xrange(0, fragment_count):
+        for _ in six.range(0, fragment_count):
             first_fragment = afrt_bs_box.read("uint:32")
             first_fragment_timestamp_raw = afrt_bs_box.read("uint:64")
             

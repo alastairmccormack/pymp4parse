@@ -8,7 +8,7 @@ except(IOError, ImportError):
 
 setup(
     name='pymp4parse',
-    version='0.2.3',
+    version='0.3.0',
     packages=[''],
     url='https://github.com/use-sparingly/pymp4parse',
     license='The MIT License',
